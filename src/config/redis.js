@@ -1,6 +1,6 @@
 const Redis=require('ioredis');
 const client = new Redis({
-    host : 'localhost',
+    host : '127.0.0.1',
     port : 6379,
 });
 
@@ -12,4 +12,4 @@ client.on('error',(err) =>{
     console.log("Redis error",err);
 })
 
-module.exposts = client;
+module.exports = client;

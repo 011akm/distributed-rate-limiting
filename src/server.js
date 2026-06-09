@@ -5,7 +5,10 @@ const app= express();
 const PORT =3000;
 
 app.use(express.json());
-app.use(rateLimiter);
+app.use((req,res,next) =>{
+  rateLimiter(req ,res, next).catch(next);
+});
+
 
 app.get('/test',(req,res) =>{
   res.json({
@@ -19,6 +22,11 @@ app.get('/health',(req,res) =>{
   res.json({
     status : 'OK'
   });
+});
+
+app.use((err,req,res,next) =>{
+  console.log('Server error:', err);
+  res.status(500).json({error : 'Internal server error'});
 });
 
 app.listen(PORT,()=>{
