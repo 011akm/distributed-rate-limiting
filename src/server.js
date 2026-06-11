@@ -9,6 +9,9 @@ app.use((req,res,next) =>{
   rateLimiter(req ,res, next).catch(next);
 });
 
+app.get('/',(req,res) =>{
+  res.end("Welcome to distributed rate Limiting,use /test or /health route");
+})
 
 app.get('/test',(req,res) =>{
   res.json({

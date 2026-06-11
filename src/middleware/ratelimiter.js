@@ -3,15 +3,19 @@ const redis =require('../config/redis.js');
 
 const WINDOW_SIZE_SEC = WINDOW_SIZE_MS / 1000;
 
+const luaScripts = `
+  local count=redis.call('INCR' , KEYS[1])
+  if count == 1 then
+    redis.call('EXPIRE' , KEYS[1] , ARGV[1])
+  end
+  return count
+`;
+
 async function rateLimiter(req,res,next){
   const clientId = req.ip;
   const key = `ratelimit:${clientId}`;
-  const count = await redis.incr(key);
-
-  if(count === 1){
-    await redis.expire(key, WINDOW_SIZE_SEC);
-  }
   
+  const count = await redis.eval(luaScripts, 1, key, WINDOW_SIZE_SEC)
   const ttl = await redis.ttl(key);
 
   if(count > MAX_REQUESTS){
