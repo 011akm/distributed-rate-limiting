@@ -11,7 +11,7 @@ const luaScripts = `
   return count
 `;
 
-async function rateLimiter(req,res,next){
+async function fixedWindowLimiter(req,res,next){
   const clientId = req.ip;
   const key = `ratelimit:${clientId}`;
   
@@ -36,4 +36,4 @@ async function rateLimiter(req,res,next){
   
 }
 
-module.exports = { rateLimiter};
+module.exports = {fixedWindowLimiter};

@@ -1,23 +1,31 @@
 const express = require('express');
-const {rateLimiter} = require('./middleware/ratelimiter.js');
+const {fixedWindowLimiter} = require('./middleware/fixedWindow.js');
+const {slidingWindowLimiter} = require('./middleware/slidingWindow.js');
 
 const app= express();
 const PORT =3000;
 
 app.use(express.json());
-app.use((req,res,next) =>{
-  rateLimiter(req ,res, next).catch(next);
-});
 
 app.get('/',(req,res) =>{
   res.end("Welcome to distributed rate Limiting,use /test or /health route");
 })
 
-app.get('/test',(req,res) =>{
+app.get('/test-sliding', (req,res,next) =>{
+  slidingWindowLimiter(req,res,next).catch(next);
+}, (req,res)=>{
+  res.json({
+    message : 'Request allowed',
+    algorith : 'sliding Window',
+  })
+});
+
+app.get('/test-fixed',(req,res,next) =>{
+  fixedWindowLimiter(req,res,next).catch(next);
+}, (req, res) =>{
   res.json({
     meassage : 'Request allowed',
-    time: new Date().toISOString(),
-    ip : req.ip,
+    algorith : 'fixed Window',
   });
 });
 
