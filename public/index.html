@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rate Limiter Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <h1>⚡ Distributed Rate Limiter</h1>
+  <p class="subtitle"><span class="live"></span>Live dashboard — refreshes every 2 seconds</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-label">Total IPs tracked</div>
+      <div class="card-value" id="total-ips">0</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Currently blocked</div>
+      <div class="card-value red" id="blocked-count">0</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Fixed window IPs</div>
+      <div class="card-value yellow" id="fixed-count">0</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Sliding window IPs</div>
+      <div class="card-value yellow" id="sliding-count">0</div>
+    </div>
+  </div>
+
+  <div class="chart-box">
+    <div class="card-label" style="margin-bottom:12px">Request activity (last 20 polls)</div>
+    <canvas id="chart" height="80"></canvas>
+  </div>
+
+  <div class="section-title">Fixed window</div>
+  <table>
+    <thead>
+      <tr>
+        <th>IP</th><th>Count</th><th>Remaining</th><th>TTL (s)</th><th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="fixed-table">
+      <tr><td colspan="5" style="color:#555">No data yet</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">Sliding window</div>
+  <table>
+    <thead>
+      <tr>
+        <th>IP</th><th>Count</th><th>Remaining</th><th>TTL (s)</th><th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="sliding-table">
+      <tr><td colspan="5" style="color:#555">No data yet</td></tr>
+    </tbody>
+  </table>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
