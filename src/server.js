@@ -1,11 +1,14 @@
 require('dotenv').config();
 const express = require('express');
+const morgan = require('morgan');
 const testRoutes = require('./routes/test.js')
 const {PORT} = require('./config/index.js');
 
 const app= express();
 
 app.use(express.json());
+
+app.use(morgan('dev'));
 
 app.use('/api', testRoutes);
 

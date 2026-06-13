@@ -19,6 +19,7 @@ async function fixedWindowLimiter(req,res,next){
   const ttl = await redis.ttl(key);
 
   if(count > MAX_REQUESTS){
+    console.log(`[BLOCKED] IP: ${clientId} | Count: ${count} | Time: ${new Date().toISOString()}`);
     res.set('Retry-After', ttl);
     res.set('X-RateLimit-Limit', MAX_REQUESTS);
     res.set('X-RateLimit-Remaining', 0);

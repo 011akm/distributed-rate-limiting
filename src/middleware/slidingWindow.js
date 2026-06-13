@@ -33,6 +33,7 @@ async function slidingWindowLimiter(req,res,next){
     res.set('X-RateLimit-Algorithm', 'sliding-window');
 
     if(!allowed){
+        console.log(`[BLOCKED] IP: ${clientId} | Active requests: ${count}/${MAX_REQUESTS} | Time: ${new Date().toISOString()}`);
         return res.status(429).json({
             error : 'Too Many Requests',
             algorithm : 'sliding-window',
