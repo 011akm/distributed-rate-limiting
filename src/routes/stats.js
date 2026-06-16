@@ -8,6 +8,7 @@ router.get('/stats', async(req, res) =>{
     try {
         const fixedKeys = await redis.keys('ratelimit:*');
         const slidingKeys = await redis.keys('sliding:*');
+        const tokenBucketKeys = await redis.keys('tokenbucket:*');
 
         const fixedStats = await Promise.all(fixedKeys.map(async (key) =>{
             const count = await redis.get(key);
@@ -29,13 +30,27 @@ router.get('/stats', async(req, res) =>{
                 count,
                 remaining : Math.max(MAX_REQUESTS - count, 0),
                 ttl,
-                blocked:   count >= MAX_REQUESTS
+                blocked: count >= MAX_REQUESTS
             }
+        }));
+
+        const tokenBucketStats = await Promise.all(tokenBucketKeys.map(async (key) => {
+            const data = await redis.get(key);
+            const ttl  = await redis.ttl(key);
+            const state = data ? JSON.parse(data) : { tokens: MAX_REQUESTS, lastRefill: Date.now() };
+            return {
+                ip: key.replace('tokenbucket:', ''),
+                tokens: Math.max(Math.floor(state.tokens), 0),
+                remaining: Math.max(Math.floor(state.tokens), 0),
+                ttl,
+                blocked: state.tokens <= 0,
+            };
         }));
 
         res.json({
             fixedWindow : fixedStats,
             slidingWindow : slidingstats,
+            tokenBucket:   tokenBucketStats,
             timestamp : new Date().toISOString(),
         });
     } catch (err) {

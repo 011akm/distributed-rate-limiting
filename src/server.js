@@ -8,6 +8,8 @@ const {PORT} = require('./config/index.js');
 
 const app= express();
 
+app.set('trust proxy', 1);
+
 app.use(express.json());
 app.use(morgan('dev'));
 
@@ -18,8 +20,15 @@ app.use('/api', statsRoutes);
 
 app.get('/health',(req,res) =>{
   res.json({
-    status : 'OK'
+    status : 'OK',
+    server : PORT,
   });
+});
+
+app.get('/which', (req, res) => {
+  res.json({ 
+    server: PORT,
+    ip: req.ip });
 });
 
 app.use((err,req,res,next) =>{

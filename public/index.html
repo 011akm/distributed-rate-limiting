@@ -13,22 +13,26 @@
   <p class="subtitle"><span class="live"></span>Live dashboard — refreshes every 2 seconds</p>
 
   <div class="grid">
-    <div class="card">
-      <div class="card-label">Total IPs tracked</div>
-      <div class="card-value" id="total-ips">0</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Currently blocked</div>
-      <div class="card-value red" id="blocked-count">0</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Fixed window IPs</div>
-      <div class="card-value yellow" id="fixed-count">0</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Sliding window IPs</div>
-      <div class="card-value yellow" id="sliding-count">0</div>
-    </div>
+  <div class="card">
+    <div class="card-label">Total IPs tracked</div>
+    <div class="card-value" id="total-ips">0</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Currently blocked</div>
+    <div class="card-value red" id="blocked-count">0</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Fixed window IPs</div>
+    <div class="card-value yellow" id="fixed-count">0</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Sliding window IPs</div>
+    <div class="card-value yellow" id="sliding-count">0</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Token bucket IPs</div>
+    <div class="card-value yellow" id="token-count">0</div>
+  </div>
   </div>
 
   <div class="chart-box">
@@ -56,6 +60,18 @@
       </tr>
     </thead>
     <tbody id="sliding-table">
+      <tr><td colspan="5" style="color:#555">No data yet</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">Token Bucket</div>
+  <table>
+   <thead>
+      <tr>
+        <th>IP</th><th>Tokens</th><th>Remaining</th><th>TTL (s)</th><th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="token-table">
       <tr><td colspan="5" style="color:#555">No data yet</td></tr>
     </tbody>
   </table>

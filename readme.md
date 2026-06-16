@@ -1,12 +1,12 @@
 # Distributed Rate Limiter
 
-A production-ready distributed rate limiter built with Node.js, Express, and Redis. Implements multiple rate limiting algorithms with atomic Lua scripts, live monitoring dashboard, and Docker support.
+A production-ready distributed rate limiter built with Node.js, Express, and Redis. Implements multiple rate limiting algorithms with atomic Lua scripts, Nginx load balancing, live monitoring dashboard, and Docker support.
 
 ---
 
 ## What is a Rate Limiter?
 
-A rate limiter controls how many requests a user can make in a given time window. This project demonstrates how rate limiting works in distributed systems — where multiple servers share state via Redis to enforce limits consistently.
+A rate limiter controls how many requests a user can make in a given time window. This project demonstrates how rate limiting works in distributed systems — where multiple servers share state via Redis to enforce limits consistently across all instances.
 
 ---
 
@@ -17,28 +17,27 @@ A rate limiter controls how many requests a user can make in a given time window
                 └──────┬──────┘
                        │
           ┌────────────▼────────────┐
-          │      Express Server     │
-          │   (middleware chain)    │
-          └────────────┬────────────┘
-                       │
-          ┌────────────▼────────────┐
-          │   Rate Limiter Layer    │
-          │  Fixed Window /         │
-          │  Sliding Window         │
-          └────────────┬────────────┘
-                       │
-          ┌────────────▼────────────┐
-          │          Redis          │
-          │   (shared state for     │
-          │   multiple servers)     │
-          └─────────────────────────┘
+          │     Nginx :80           │
+          │     Load Balancer       │
+          │     Round Robin         │
+          └─────┬──────────┬────────┘
+                │          │
+      ┌─────────▼──┐  ┌───▼─────────┐
+      │ App1 :3000 │  │ App2 :3001  │
+      │ Express    │  │ Express     │
+      └─────────┬──┘  └───┬─────────┘
+                │          │
+          ┌─────▼──────────▼─────┐
+          │        Redis         │
+          │   (shared state)     │
+          └──────────────────────┘
 
 ---
 
 ## Algorithms Implemented
 
 ### 1. Fixed Window
-- Counts requests in fixed time buckets (e.g. 5 requests per minute)
+- Counts requests in fixed time buckets
 - Simple and memory efficient
 - Uses Redis `INCR` + `EXPIRE` via atomic Lua script
 - **Weakness:** burst traffic possible at window boundaries
@@ -49,13 +48,19 @@ A rate limiter controls how many requests a user can make in a given time window
 - Eliminates boundary burst problem completely
 - Uses `ZADD` + `ZREMRANGEBYSCORE` + `ZCARD` via atomic Lua script
 
-### 3. Atomic Lua Scripts
-Both algorithms use Lua scripts to ensure atomicity in Redis.
+### 3. Token Bucket
+- Each user has a bucket of tokens refilled at a fixed rate
+- Tokens consumed on each request
+- Allows controlled bursts — saved tokens can be spent together
+- Industry standard — used by Stripe, AWS, Cloudflare
+
+### 4. Atomic Lua Scripts
+All algorithms use Lua scripts to ensure atomicity in Redis.
 
 **The problem without Lua:**
 ```js
 const count = await redis.incr(key);   // call 1
-// server crashes here ← key never expires, user blocked forever
+// server crashes here → key never expires → user blocked forever
 await redis.expire(key, 60);           // call 2
 ```
 
@@ -73,33 +78,38 @@ return count
 
 ## Algorithm Comparison
 
-|                     | Fixed Window | Sliding Window  |
-|---------------------|--------------|-----------------|
-| Burst problem       | ❌           |    ✅          |
-| Memory usage        | Low          |    Medium       |
-| Complexity          | Simple       |    Medium       |
-| Race condition safe | ✅ Lua       |   ✅ Lua       |
-| Industry usage      | Basic        |    Common       |
+|                     | Fixed Window | Sliding Window | Token Bucket  |
+|---------------------|--------------|----------------|---------------|
+| Burst at boundary   | ❌           |   ✅          | ✅           |
+| Controlled burst    | ❌          |    ❌          | ✅           |
+| Memory per user     | O(1)         |   O(n)         | O(1)          |
+| Race condition safe | ✅ Lua      |   ✅ Lua       | ✅ Lua       |
+| Industry usage      | Basic        |   Common       | Most common   |
 
 ---
 
 ## Tech Stack
 
-| Tool                    |         Purpose          |
-|-------------------------|--------------------------|
-| Node.js                 | Runtime                  |
-| Express                 | HTTP framework           |
-| Redis                   | Shared distributed state |
-| ioredis                 | Redis client for Node.js |
-| Docker + Docker Compose | Containerization         |
-| Morgan                  | HTTP request logging     |
-| autocannon              | Stress testing           |
+| Tool                    |          Purpose              |
+|-------------------------|-------------------------------|
+| Node.js                 | Runtime                       |
+| Express.js              | HTTP framework                |
+| Redis                   | Shared distributed state      |
+| ioredis                 | Redis client for Node.js      |
+| Nginx                   | Load balancer + reverse proxy |
+| Docker + Docker Compose | Containerization              |
+| Morgan                  | HTTP request logging          |
+| autocannon              | Stress testing                |
 
 ---
 
 ## Project Structure
 
 distributed-rate-limiter/
+
+├── nginx/
+
+│   └── nginx.conf            # Nginx load balancer config
 
 ├── src/
 
@@ -113,7 +123,9 @@ distributed-rate-limiter/
 
 │   │   ├── fixedWindow.js    # fixed window + lua script
 
-│   │   └── slidingWindow.js  # sliding window + lua script
+│   │   ├── slidingWindow.js  # sliding window + lua script
+
+│   │   └── tokenBucket.js    # token bucket + lua script
 
 │   ├── routes/
 
@@ -150,13 +162,13 @@ distributed-rate-limiter/
 
 ### Run with Docker (recommended)
 ```bash
-git clone https://github.com/011akm/distributed-rate-limiter.git
-cd distributed-rate-limiter
+git clone https://github.com/011akm/distributed-rate-limiting.git
+cd distributed-rate-limiting
 docker-compose up --build
 ```
 
-Server runs at `http://localhost:3000`
-Dashboard at `http://localhost:3000`
+Server runs at `http://localhost`
+Dashboard at `http://localhost`
 
 ### Run Locally
 ```bash
@@ -177,18 +189,30 @@ npm start
 
 ## API Endpoints
 
-| Method |      Endpoint      | Algorithm      |       Description         |
-|--------|--------------------|----------------|---------------------------|
-| GET    | `/api/test-fixed`  | Fixed window   | Rate limited endpoint     |
-| GET    | `/api/test-sliding`| Sliding window | Rate limited endpoint     |
-| GET    | `/api/stats`       |      —         | Live stats for dashboard  |
-| GET    | `/health`          |      —         | Health check              |
+| Method |      Endpoint       |    Algorithm   |           Description              |
+|--------|---------------------|----------------|------------------------------------|
+| GET    | `/api/test`         | Fixed window   | Rate limited endpoint              |
+| GET    | `/api/test-sliding` | Sliding window | Rate limited endpoint              |
+| GET    | `/api/test-token`   | Token bucket   | Rate limited endpoint              |
+| GET    | `/api/stats`        |       —        | Live stats for dashboard           |
+| GET    | `/health`           |       —        | Health check                       |
+| GET    | `/which`            |       —        | Shows which server handled request |
 
 ---
 
 ## Rate Limit Headers
 
-Every response includes headers so clients know their current status:
+Every response includes:
+
+X-RateLimit-Limit: 5        ← max requests allowed
+
+X-RateLimit-Remaining: 3    ← requests left in window
+
+X-RateLimit-Reset: 45       ← seconds until reset
+
+X-RateLimit-Algorithm: sliding-window
+
+Retry-After: 45             ← only on 429 responses
 
 ---
 
@@ -216,66 +240,99 @@ MAX_REQUESTS=5
 
 ## Monitoring Dashboard
 
-Live dashboard at `http://localhost:3000` showing:
+Live dashboard at `http://localhost` showing:
 
 - Total IPs currently tracked
 - Number of blocked IPs
-- Per-IP request count and remaining limit
-- TTL (seconds until window resets) per IP
+- Per-algorithm IP counts
+- Per-IP request count, remaining limit, TTL
+- Token bucket token count per IP
 - Live request activity chart (allowed vs blocked)
 - Auto-refreshes every 2 seconds
 
 ---
 
-## Distributed Simulation
+## Load Balancing with Nginx
 
-Proved that rate limits are shared correctly across multiple servers:
+Nginx distributes traffic across two Node.js instances using round robin:
 
+Request 1 → App1 :3000
+
+Request 2 → App2 :3001
+
+Request 3 → App1 :3000
+
+Request 4 → App2 :3001
+
+Verify load balancing is working:
 ```bash
-# Terminal 1
-PORT=3000 npm start
+curl http://localhost/which
+# {"server":"3000","ip":"..."}
 
-# Terminal 2
-PORT=3001 npm start
+curl http://localhost/which
+# {"server":"3001","ip":"..."}
 ```
 
-Both servers share the same Redis counter — users cannot bypass the limit by hitting different servers.
+---
+
+## Distributed Simulation
+
+Rate limits are enforced correctly across all servers — users cannot bypass limits by hitting different servers:
+
+App1 → request 1 ✅  Redis count = 1
+
+App1 → request 2 ✅  Redis count = 2
+
+App1 → request 3 ✅  Redis count = 3
+
+App2 → request 4 ✅  Redis count = 4
+
+App2 → request 5 ✅  Redis count = 5
+
+App2 → request 6 ❌  Redis count = 6 → 429 blocked
 
 ---
 
 ## Stress Test Results
 
-**Tool:** autocannon  
-**Config:** 10 concurrent connections, 5 seconds  
-**Endpoint:** `GET /api/test-sliding` (sliding window algorithm)
+**Tool:** autocannon
+**Config:** 10 concurrent connections, 5 seconds
+**Endpoint:** `GET /api/test-sliding`
 
 ```bash
-autocannon -c 10 -d 5 http://localhost:3000/api/test-sliding
+autocannon -c 10 -d 5 http://localhost/api/test-sliding
 ```
 
-| Metric         | Value   |
-|----------------|---------|
-| Total requests | 3,460   |
-| Allowed (2xx)  | 7       |
-| Blocked (429)  | 3,453   |
-| Avg latency    | 13.95ms |
-| Max latency    | 96ms    |
-| Avg req/sec    | 692     |
+| Metric | Value |
+|--------|-------|
+| Total requests | 3,460 |
+| Allowed (2xx) | 7 |
+| Blocked (429) | 3,453 |
+| Avg latency | 13.95ms |
+| Max latency | 96ms |
+| Avg req/sec | 692 |
 
-99.8% of requests correctly blocked under high concurrency. Rate limiter maintained correctness with zero crashes.
+99.8% of requests correctly blocked under high concurrency.
+Rate limiter maintained correctness with zero crashes.
 
 ---
 
 ## Key Design Decisions
 
-**Why Redis over in-memory store?**  
+**Why Redis over in-memory store?**
 In-memory state dies on server restart and cannot be shared across multiple servers. Redis provides persistent shared state — the foundation of distributed rate limiting.
 
-**Why Lua scripts for atomicity?**  
-Two separate Redis calls have a gap between them where failures can cause permanent bugs (key never expires → user blocked forever). Lua scripts execute as a single atomic unit in Redis — nothing can interrupt them.
+**Why Lua scripts for atomicity?**
+Two separate Redis calls have a gap between them where failures can cause permanent bugs. Lua scripts execute as a single atomic unit in Redis — nothing can interrupt them.
 
-**Why sliding window over fixed window?**  
-Fixed window allows 2x the rate limit at window boundaries (burst problem). Sliding window always evaluates the last N seconds from the current moment — no boundary exploitation is possible.
+**Why sliding window over fixed window?**
+Fixed window allows 2x the rate limit at window boundaries. Sliding window always evaluates the last N seconds — no boundary exploitation possible.
+
+**Why token bucket?**
+Token bucket is the industry standard used by Stripe, AWS, and Cloudflare. It allows controlled bursts — users who haven't made requests recently can spend saved tokens, making it more fair than sliding window for real-world APIs.
+
+**Why Nginx?**
+Nginx provides a single entry point for all traffic and automatically distributes requests across Node.js instances. Combined with Redis shared state, this proves the rate limiter works correctly in a true distributed environment.
 
 ---
 
@@ -283,23 +340,14 @@ Fixed window allows 2x the rate limit at window boundaries (burst problem). Slid
 
 - Distributed systems require shared external state — server memory doesn't scale
 - Atomicity matters at scale — race conditions are invisible until they cause real bugs
-- Algorithm choice has real tradeoffs — simplicity vs correctness vs memory usage
-- Redis is not just a cache — it's a powerful data structure server (sorted sets, Lua)
-- Docker Compose makes multi-service setups reproducible for anyone
-
----
-
-## Roadmap
-
-- [ ] Token bucket algorithm
-- [ ] Nginx load balancer in Docker Compose
-- [ ] Prometheus metrics endpoint
-- [ ] Grafana dashboard integration
+- Algorithm choice has real tradeoffs — simplicity vs correctness vs memory vs fairness
+- Redis is not just a cache — sorted sets, Lua scripting, atomic operations
+- Nginx + Docker Compose makes multi-service architecture reproducible in one command
+- Token bucket is more fair than sliding window for real-world API traffic patterns
 
 ---
 
 ## Author
 
-Aman Kumar — BTech  
-GitHub: github.com/011akm
-
+Aman Kumar — BTech 
+GitHub: [github.com/011akm](https://github.com/011akm)

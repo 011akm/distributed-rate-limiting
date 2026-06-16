@@ -40,7 +40,7 @@ const chart = new Chart(ctx, {
   }
 });
 
-function renderTable(tbodyId, data) {
+function renderTable(tbodyId, data, isTokenBucket = false) {
   const tbody = document.getElementById(tbodyId);
   if (!data.length) {
     tbody.innerHTML = '<tr><td colspan="5" style="color:#555">No data yet</td></tr>';
@@ -49,7 +49,7 @@ function renderTable(tbodyId, data) {
   tbody.innerHTML = data.map(row => `
     <tr>
       <td>${row.ip}</td>
-      <td>${row.count}</td>
+      <td>${isTokenBucket ? row.tokens + ' tokens' : row.count}</td>
       <td>${row.remaining}</td>
       <td>${row.ttl}</td>
       <td><span class="badge ${row.blocked ? 'blocked' : 'allowed'}">${row.blocked ? 'BLOCKED' : 'ALLOWED'}</span></td>
@@ -62,20 +62,24 @@ async function fetchStats() {
     const res  = await fetch('/api/stats');
     const data = await res.json();
 
-    const fixedData   = data.fixedWindow   || [];
-    const slidingData = data.slidingWindow || [];
+    const fixedData       = data.fixedWindow   || [];
+    const slidingData     = data.slidingWindow  || [];
+    const tokenData       = data.tokenBucket    || [];
 
-    const totalIPs = fixedData.length + slidingData.length;
-    const blocked  = [...fixedData, ...slidingData].filter(r => r.blocked).length;
+    const allData  = [...fixedData, ...slidingData, ...tokenData];
+    const totalIPs = allData.length;
+    const blocked  = allData.filter(r => r.blocked).length;
     const allowed  = totalIPs - blocked;
 
     document.getElementById('total-ips').textContent     = totalIPs;
     document.getElementById('blocked-count').textContent = blocked;
     document.getElementById('fixed-count').textContent   = fixedData.length;
     document.getElementById('sliding-count').textContent = slidingData.length;
+    document.getElementById('token-count').textContent = tokenData.length;
 
     renderTable('fixed-table',   fixedData);
     renderTable('sliding-table', slidingData);
+    renderTable('token-table',   tokenData, true);
 
     const time = new Date().toLocaleTimeString();
     labels.push(time);
