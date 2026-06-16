@@ -191,7 +191,7 @@ npm start
 
 | Method |      Endpoint       |    Algorithm   |           Description              |
 |--------|---------------------|----------------|------------------------------------|
-| GET    | `/api/test`         | Fixed window   | Rate limited endpoint              |
+| GET    | `/api/test-fixed`   | Fixed window   | Rate limited endpoint              |
 | GET    | `/api/test-sliding` | Sliding window | Rate limited endpoint              |
 | GET    | `/api/test-token`   | Token bucket   | Rate limited endpoint              |
 | GET    | `/api/stats`        |       —        | Live stats for dashboard           |
