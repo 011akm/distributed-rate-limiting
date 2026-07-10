@@ -98,4 +98,4 @@ async function fetchStats() {
 }
 
 fetchStats();
-setInterval(fetchStats, 2000);
+setInterval(fetchStats, 1000);
